@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Stock & ETF Predictor</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --buy: #22c55e;
+            --sell: #ef4444;
+            --hold: #eab308;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            margin-top: 3rem;
+            text-align: center;
+        }
+
+        h1 { margin: 0; font-size: 2.5rem; }
+        p.subtitle { color: var(--text-muted); margin-top: 0.5rem; }
+
+        .search-container {
+            margin: 2rem 0;
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            padding: 1rem;
+            font-size: 1.2rem;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background-color: var(--card-bg);
+            color: white;
+            width: 250px;
+            text-transform: uppercase;
+        }
+
+        input:focus { outline: 2px solid var(--accent); }
+
+        button {
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover { background-color: #2563eb; }
+        button:disabled { background-color: #475569; cursor: not-allowed; }
+
+        .loading {
+            display: none;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            margin: 2rem 0;
+        }
+
+        /* Spinner simples */
+        .spinner {
+            display: inline-block;
+            width: 20px; height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .results-card {
+            display: none;
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            margin-bottom: 3rem;
+        }
+
+        .header-result { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 1rem; margin-bottom: 1rem; }
+        .symbol-title { font-size: 2rem; font-weight: bold; margin:0;}
+        
+        .badge {
+            padding: 0.5rem 1.5rem;
+            border-radius: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        .badge.BUY { background-color: rgba(34, 197, 94, 0.2); color: var(--buy); border: 1px solid var(--buy);}
+        .badge.SELL { background-color: rgba(239, 68, 68, 0.2); color: var(--sell); border: 1px solid var(--sell);}
+        .badge.HOLD { background-color: rgba(234, 179, 8, 0.2); color: var(--hold); border: 1px solid var(--hold);}
+
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;}
+        .stat-box { background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; text-align: center;}
+        .stat-label { color: var(--text-muted); font-size: 0.9rem; display: block; margin-bottom: 5px;}
+        .stat-value { font-size: 1.5rem; font-weight: bold;}
+
+        .reasoning { line-height: 1.6; margin-bottom: 1.5rem; color: #cbd5e1; }
+
+        .signals { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .signal-box h3 { margin-top: 0; font-size: 1.1rem; }
+        .bullish h3 { color: var(--buy); }
+        .bearish h3 { color: var(--sell); }
+        ul { padding-left: 1.2rem; margin: 0; color: #cbd5e1; font-size: 0.95rem; }
+        li { margin-bottom: 0.5rem; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🤖 Llama AI Predictor</h1>
+        <p class="subtitle">Análise Técnica & Inteligência Artificial em Tempo Real</p>
+    </header>
+
+    <main style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+        <div class="search-container">
+            <input type="text" id="symbolInput" placeholder="Ex: AAPL, TSLA, SPY" autocomplete="off" onkeypress="handleEnter(event)">
+            <button id="analyzeBtn" onclick="analyzeStock()">Analisar</button>
+        </div>
+
+        <div id="loadingMessage" class="loading">
+            <div class="spinner"></div> A Llama está a analisar o mercado...
+        </div>
+
+        <div id="resultsCard" class="results-card">
+            <div class="header-result">
+                <h2 class="symbol-title" id="resSymbol">AAPL</h2>
+                <div class="badge" id="resAction">BUY</div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <span class="stat-label">Confiança da IA</span>
+                    <span class="stat-value" id="resConfidence">82%</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">Nível de Risco</span>
+                    <span class="stat-value" id="resRisk">MEDIUM</span>
+                </div>
+            </div>
+
+            <p class="reasoning" id="resReasoning">
+                A análise aponta para uma forte compra devido ao cruzamento do MACD...
+            </p>
+
+            <div class="signals">
+                <div class="signal-box bullish">
+                    <h3>🟢 Sinais Bullish</h3>
+                    <ul id="resBullish"></ul>
+                </div>
+                <div class="signal-box bearish">
+                    <h3>🔴 Sinais Bearish</h3>
+                    <ul id="resBearish"></ul>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function handleEnter(e) {
+            if (e.key === 'Enter') analyzeStock();
+        }
+
+        async function analyzeStock() {
+            const symbolInput = document.getElementById('symbolInput').value.trim().toUpperCase();
+            if (!symbolInput) return alert("Por favor, insere o símbolo de uma ação!");
+
+            const btn = document.getElementById('analyzeBtn');
+            const loading = document.getElementById('loadingMessage');
+            const card = document.getElementById('resultsCard');
+
+            // Esconder resultados antigos e mostrar loading
+            card.style.display = 'none';
+            loading.style.display = 'block';
+            btn.disabled = true;
+
+            try {
+                // Fazer o pedido ao teu Backend (API)
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ symbol: symbolInput })
+                });
+
+                const data = await response.json();
+
+                if (data.error) throw new Error(data.error);
+
+                const rec = data.recommendation;
+
+                // Preencher os dados no HTML
+                document.getElementById('resSymbol').innerText = data.symbol;
+                
+                const actionBadge = document.getElementById('resAction');
+                actionBadge.innerText = rec.action;
+                actionBadge.className = `badge ${rec.action}`; // Muda a cor (BUY/SELL/HOLD)
+
+                document.getElementById('resConfidence').innerText = `${rec.confidence}%`;
+                document.getElementById('resRisk').innerText = rec.riskLevel;
+                document.getElementById('resReasoning').innerText = rec.reasoning;
+
+                // Preencher listas
+                document.getElementById('resBullish').innerHTML = rec.signals.bullish.map(s => `<li>${s}</li>`).join('');
+                document.getElementById('resBearish').innerHTML = rec.signals.bearish.map(s => `<li>${s}</li>`).join('');
+
+                // Mostrar o cartão!
+                loading.style.display = 'none';
+                card.style.display = 'block';
+
+            } catch (error) {
+                loading.style.display = 'none';
+                alert("Erro ao analisar: " + error.message);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
